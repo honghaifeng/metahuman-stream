@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>大咖说 H5</title>
+  <style>
+    :root {
+      --bg: #120d0b;
+      --card: rgba(255, 250, 243, 0.16);
+      --line: rgba(255, 255, 255, 0.12);
+      --text: #fff8ef;
+      --muted: rgba(255, 248, 239, 0.72);
+      --accent: #ff9a1f;
+      --accent-deep: #cf6400;
+      --disabled: rgba(255, 255, 255, 0.24);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(255, 153, 31, 0.22), transparent 32%),
+        linear-gradient(180deg, #1a110d 0%, #0f0b09 100%);
+      color: var(--text);
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      overflow: hidden;
+    }
+
+    body {
+      padding:
+        max(16px, env(safe-area-inset-top))
+        0
+        max(18px, env(safe-area-inset-bottom));
+    }
+
+    .app {
+      display: flex;
+      min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px 14px;
+    }
+
+    .brand {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .deck {
+      display: flex;
+      flex: 1;
+      gap: 0;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      scrollbar-width: none;
+      padding: 0 0 10px;
+    }
+
+    .deck::-webkit-scrollbar {
+      display: none;
+    }
+
+    .slide {
+      width: 100%;
+      flex: 0 0 100%;
+      scroll-snap-align: center;
+      padding: 0 20px;
+    }
+
+    .card {
+      position: relative;
+      display: flex;
+      min-height: 100%;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      border-radius: 34px;
+      background: #201411;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.58) 62%, rgba(0,0,0,0.86) 100%);
+      pointer-events: none;
+    }
+
+    .poster {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .poster {
+      object-fit: cover;
+      object-position: center center;
+      filter: saturate(1.05) contrast(1.03);
+    }
+
+    .poster.xu {
+      object-position: center 24%;
+    }
+
+    .poster.xu2 {
+      object-position: center 30%;
+    }
+
+    .poster.xu3 {
+      object-position: center 18%;
+    }
+
+    .poster.wang {
+      object-position: center 28%;
+      background: linear-gradient(180deg, #666067 0%, #605b60 100%);
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      padding: 30px 22px 22px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    h1 {
+      margin: 14px 0 8px;
+      font-size: 42px;
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .role {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 18px 0 24px;
+    }
+
+    .tag {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff2df;
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 54px;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+      color: #fff;
+      font-size: 17px;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 14px 28px rgba(207, 100, 0, 0.28);
+    }
+
+    .button.disabled {
+      background: var(--disabled);
+      box-shadow: none;
+      color: rgba(255,255,255,0.76);
+      pointer-events: none;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 20px 0;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.22);
+      transition: transform .2s ease, background-color .2s ease, width .2s ease;
+    }
+
+    .dot.active {
+      width: 24px;
+      background: var(--accent);
+    }
+
+    .hint {
+      padding-top: 10px;
+      color: rgba(255,255,255,0.56);
+      font-size: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div>
+        <div class="brand">大咖说</div>
+        <div class="sub">左右滑动切换人物</div>
+      </div>
+    </div>
+
+    <div class="deck" id="deck">
+      <section class="slide">
+        <article class="card">
+          <img class="poster xu" src="/xuxiaoping-portrait.jpg" alt="徐小平" />
+          <div class="content">
+            <div class="eyebrow">35高清</div>
+            <h1>徐小平</h1>
+            <div class="role">真格基金创始人 · 35高清版</div>
+            <div class="tags">
+              <span class="tag">高清数字人</span>
+              <span class="tag">创业方向</span>
+              <span class="tag">对比测试</span>
+            </div>
+            <div class="actions">
+              <a class="button" href="https://demo2.pianai.love/webrtcapi-h5.html?avatar=musetalk_35_hd">进入对话</a>
+            </div>
+          </div>
+        </article>
+      </section>
+
+
+      <section class="slide">
+        <article class="card">
+          <img class="poster xu2" src="/xuxiaoping-poster.jpg" alt="徐小平" />
+          <div class="content">
+            <div class="eyebrow">31高清</div>
+            <h1>徐小平</h1>
+            <div class="role">真格基金创始人 · 31高清版</div>
+            <div class="tags">
+              <span class="tag">1080p</span>
+              <span class="tag">高清数字人</span>
+              <span class="tag">对比测试</span>
+            </div>
+            <div class="actions">
+              <a class="button" href="https://demo2.pianai.love/webrtcapi-h5.html?avatar=musetalk_31_720">进入对话</a>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="slide">
+        <article class="card">
+          <img class="poster xu3" src="/xuxiaoping-portrait.jpg" alt="徐小平" />
+          <div class="content">
+            <div class="eyebrow">33高清</div>
+            <h1>徐小平</h1>
+            <div class="role">真格基金创始人 · 33高清版</div>
+            <div class="tags">
+              <span class="tag">720p</span>
+              <span class="tag">高清数字人</span>
+              <span class="tag">对比测试</span>
+            </div>
+            <div class="actions">
+              <a class="button" href="https://demo2.pianai.love/webrtcapi-h5.html?avatar=musetalk_33_720">进入对话</a>
+            </div>
+          </div>
+        </article>
+      </section>
+      <section class="slide">
+        <article class="card">
+          <img class="poster wang" src="/wangguanchun.jpg" alt="汪冠春" />
+          <div class="content">
+            <div class="eyebrow">CEO</div>
+            <h1>汪冠春</h1>
+            <div class="role">来也科技董事长</div>
+            <div class="tags">
+              <span class="tag">AI 落地</span>
+              <span class="tag">企业服务</span>
+              <span class="tag">技术管理</span>
+            </div>
+            <div class="actions">
+              <a class="button disabled" href="javascript:void(0)">即将开放</a>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <div class="nav" id="nav">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+    <div class="hint">滑动卡片切换人物</div>
+  </div>
+
+  <script>
+    const deck = document.getElementById("deck");
+    const dots = Array.from(document.querySelectorAll(".dot"));
+
+    function updateDots() {
+      const index = Math.round(deck.scrollLeft / deck.clientWidth);
+      dots.forEach((dot, dotIndex) => {
+        dot.classList.toggle("active", dotIndex === index);
+      });
+    }
+
+    deck.addEventListener("scroll", () => {
+      window.requestAnimationFrame(updateDots);
+    }, { passive: true });
+
+    dots.forEach((dot, index) => {
+      dot.addEventListener("click", () => {
+        deck.scrollTo({
+          left: deck.clientWidth * index,
+          behavior: "smooth"
+        });
+      });
+    });
+  </script>
+</body>
+</html>

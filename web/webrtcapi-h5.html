@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>大咖说 - H5对话</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #000; color: #fff; height: 100vh; overflow: hidden;
+    }
+    .container { height: 100vh; width: 100vw; display: flex; flex-direction: column; }
+    .video-main { position: relative; display: flex; flex-direction: column; height: 100vh; }
+
+    .stage-remote {
+      position: relative; width: 100%; height: 48vh; flex: none;
+      overflow: hidden; background: #000;
+      border: 2px dashed red;
+    }
+    .stage-remote video {
+      width: 100%; height: 100%; display: block;
+      object-fit: cover; object-position: center center;
+      transform: scale(1.45);
+      transform-origin: center 38%;
+      position: relative; z-index: 1;
+      
+    }
+
+    .stage-local {
+      position: relative; width: 100%; height: 34vh; flex: none;
+      overflow: hidden; background: #000; margin-top: 1vh;
+      border: 2px dashed red;
+    }
+    .stage-local video {
+      width: 100%; height: 100%; display: block;
+      object-fit: cover; object-position: center center;
+      transform: scaleX(-1);
+    }
+
+    .name-tag {
+      position: absolute; top: 10px; left: 12px; z-index: 20;
+      background: rgba(0,0,0,0.58); padding: 6px 12px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; backdrop-filter: blur(10px);
+    }
+
+    .h5-topbar { display: none !important; }
+
+    .top-actions {
+      position: absolute; top: 10px; right: 12px; z-index: 22;
+    }
+    .close-btn {
+      width: 36px; height: 36px; border: 0; border-radius: 999px;
+      background: rgba(0,0,0,0.5); color: #fff; font-size: 18px;
+      cursor: pointer; backdrop-filter: blur(10px);
+    }
+
+    .subtitle {
+      position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); padding: 7px 14px; border-radius: 8px;
+      font-size: 13px; max-width: 80%; text-align: center; line-height: 1.4;
+      opacity: 0; transition: opacity 0.3s; z-index: 10; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .subtitle.show { opacity: 1; }
+
+    .controls {
+      flex: 1; display: flex; flex-direction: column; align-items: stretch;
+      gap: 12px;
+      padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); background: #000; z-index: 15;
+    }
+    .btn {
+      height: 44px; padding: 0 16px; border: none; border-radius: 999px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .btn-green { background: #22c55e; color: #fff; }
+    .btn-red { background: #ef4444; color: #fff; }
+    .btn-blue { background: #3b82f6; color: #fff; }
+    .btn-orange { background: #f97316; color: #fff; }
+    .btn-gray { background: #374151; color: #fff; border: 1px solid #555; }
+
+    .hidden { display: none !important; }
+    .hidden-control { display: none !important; }
+    #stop, #btn_voice_dialog { display: none !important; }
+
+    .side-actions {
+      position: absolute; right: 12px; z-index: 22; display: none !important;
+      bottom: calc(18vh + env(safe-area-inset-bottom));
+    }
+    .icon-btn {
+      width: 40px; height: 40px; border: 0; border-radius: 999px;
+      background: rgba(0,0,0,0.5); color: #fff; font-size: 18px;
+      cursor: pointer; backdrop-filter: blur(10px);
+    }
+
+    .rec-indicator {
+      position: absolute; top: 10px; right: 56px; z-index: 20;
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; color: #ef4444;
+    }
+    .rec-indicator .dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #ef4444;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+    .rec-indicator.hidden { display: none; }
+
+    .chat-col { display: none; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 16px; }
+    .chat-placeholder { color: #666; text-align: center; margin-top: 40px; font-size: 13px; }
+    .chat-msg { margin-bottom: 16px; }
+    .chat-msg .sender { font-size: 12px; color: #999; margin-bottom: 4px; }
+    .chat-msg.user .sender { color: #60a5fa; }
+    .chat-msg.ai .sender { color: #f472b6; }
+    .chat-interim { color: #666; font-size: 13px; font-style: italic; margin-bottom: 8px; }
+    .only-hidden { display: none !important; }
+    .stun-check { color: #999; font-size: 13px; }
+    .control-group { display: flex; gap: 12px; width: 100%; }
+    .control-group .btn { flex: 1; }
+    .btn-voice { background: #374151; color: rgba(255,255,255,0.7); border: 1px solid #555; height: 40px; font-size: 13px; }
+    .btn-voice.active { background: #f97316; color: #fff; border-color: #f97316; }
+    .connect-toast {
+      position: absolute; left: 16px; right: 16px; top: 64px; z-index: 30;
+      background: rgba(10,10,10,0.86); border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px; padding: 14px 14px 12px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+    }
+    .connect-toast.hidden { display: none !important; }
+    .connect-toast-title {
+      font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4;
+    }
+    .connect-toast-text {
+      margin-top: 6px; font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.82);
+    }
+    .connect-toast-actions {
+      margin-top: 12px; display: flex; justify-content: flex-end;
+    }
+    .connect-toast .btn {
+      min-width: 104px; height: 38px; font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="appContainer">
+    <div class="video-main">
+      <div class="stage-remote">
+        <video id="video" autoplay muted playsinline webkit-playsinline="true" x5-playsinline="true" x5-video-player-type="h5-page" x5-video-player-fullscreen="false" x-webkit-airplay="allow"></video>
+        <div class="name-tag">徐小平</div>
+        <div class="top-actions">
+          <button id="btn_close_voice" class="close-btn" onclick="goBackHome()" aria-label="返回首页">←</button>
+        </div>
+        <div class="h5-topbar">
+          <div class="h5-title">大咖说</div>
+          <div class="h5-status" id="h5Status">正在准备对话...</div>
+        </div>
+        <div class="subtitle" id="subtitleAi"></div>
+        <div class="connect-toast hidden" id="connectToast">
+          <div class="connect-toast-title" id="connectToastTitle">连接遇到一点问题</div>
+          <div class="connect-toast-text" id="connectToastText">数字人暂时没有显示出来，请重新连接。</div>
+          <div class="connect-toast-actions">
+            <button class="btn btn-orange" id="btn_retry_connect" type="button" onclick="manualReconnect()">重新连接</button>
+          </div>
+        </div>
+      </div>
+      <div class="stage-local">
+        <video id="localVideo" autoplay muted playsinline webkit-playsinline="true" x5-playsinline="true" x5-video-player-type="h5-page" x5-video-player-fullscreen="false" x-webkit-airplay="allow"></video>
+        <div class="name-tag">我</div>
+        <div class="subtitle" id="subtitleUser"></div>
+      </div>
+      <div class="rec-indicator hidden" id="recIndicator"><span class="dot"></span>REC <span id="recTime">00:00</span></div>
+      <div class="side-actions">
+        <button id="btn_download_menu" class="icon-btn" onclick="downloadAllFiles()" aria-label="下载">⇩</button>
+      </div>
+      <div class="controls">
+        <select id="avatarSelect" class="hidden-control" onchange="switchAvatar()"><option value="musetalk_31_720">31高清(1080p)</option><option value="musetalk_33_720">33高清(720p)</option><option value="musetalk_33b">33标准</option><option value="musetalk_35_hd">35高清</option><option value="musetalk_35b">35标准</option></select>
+        <div class="control-group" id="voiceGroup"><button class="btn btn-voice active" data-voice="voice1" onclick="pickVoice(this)">音色1</button><button class="btn btn-voice" data-voice="voice2" onclick="pickVoice(this)">音色2</button><button class="btn btn-voice" data-voice="voice3" onclick="pickVoice(this)">音色3</button></div><select id="voiceSelect" style="display:none"><option value="voice1">音色1</option><option value="voice2">音色2</option><option value="voice3">音色3</option></select>
+        <button id="start" class="hidden-control" onclick="start()">开始连接</button>
+        <button id="stop" class="hidden-control" onclick="stop()">结束对话</button>
+        <button id="btn_voice_dialog" class="hidden-control" onclick="toggleVoiceDialog()">语音对话</button>
+        <label class="hidden-control"><input id="use-stun" type="checkbox" checked /> STUN</label>
+        <button id="btn_layout" class="hidden-control" onclick="toggleLayout()">并排</button>
+        <div class="control-group"><button class="btn btn-gray" onclick="downloadChat()">下载文字</button><button class="btn btn-gray" onclick="downloadAudio()">下载语音</button><button class="btn btn-gray" onclick="downloadVideo()">下载视频</button></div>
+        
+      </div>
+    </div>
+    <div class="chat-col">
+      <div class="chat-header">对话记录</div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-placeholder">开始语音对话后，文字记录将显示在此</div>
+      </div>
+    </div>
+  </div>
+
+  <audio id="audio" autoplay></audio>
+  <input type="hidden" id="sessionid" value="0" />
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+  <script src="client.js?v=4"></script>
+  <script>
+var dialogWs=null,micStream=null,micCtx=null,micProc=null,voiceActive=false,chatStarted=false;
+var currentAiMsg=null,currentAiText='',interimDiv=null;
+var unlockHandlersBound=false;
+var audioContextsToUnlock=[];
+var remoteVideoPlaying=false;
+var autoBootRetryCount=0;
+var connectWatchTimer=null, connectState='idle', isManualReconnect=false;
+
+function rememberAudioContext(ctx){
+  if(!ctx) return ctx;
+  if(audioContextsToUnlock.indexOf(ctx) === -1){
+    audioContextsToUnlock.push(ctx);
+  }
+  return ctx;
+}
+
+function unlockMediaPlayback(){
+  audioContextsToUnlock = audioContextsToUnlock.filter(function(ctx){
+    if(!ctx || ctx.state === 'closed') return false;
+    if(ctx.state === 'suspended'){
+      ctx.resume().catch(function(err){ console.warn('AudioContext resume failed:', err); });
+    }
+    return true;
+  });
+  ['audio','video','localVideo'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    try{
+      var playPromise = el.play();
+      if(playPromise && typeof playPromise.catch === 'function'){
+        playPromise.catch(function(err){ console.warn(id + ' play failed:', err); });
+      }
+    }catch(err){
+      console.warn(id + ' play exception:', err);
+    }
+  });
+}
+
+function bindUnlockHandlers(){
+  if(unlockHandlersBound) return;
+  unlockHandlersBound = true;
+  ['touchstart','touchend','click'].forEach(function(evtName){
+    document.addEventListener(evtName, unlockMediaPlayback, { passive: true });
+  });
+  document.addEventListener('WeixinJSBridgeReady', unlockMediaPlayback, false);
+}
+
+function getBrowserCompatFlags(){
+  var ua = (navigator.userAgent || '').toLowerCase();
+  return {
+    isAndroid: ua.indexOf('android') !== -1,
+    isHuawei: ua.indexOf('huawei') !== -1 || ua.indexOf('honor') !== -1 || ua.indexOf('harmony') !== -1,
+    isWeChat: ua.indexOf('micromessenger') !== -1 || ua.indexOf('weixin') !== -1,
+    isQQBrowser: ua.indexOf('mqqbrowser') !== -1 || ua.indexOf('qqbrowser') !== -1
+  };
+}
+
+function shouldDisableClientStun(){
+  var params = new URLSearchParams(location.search);
+  if (params.has('stun')) {
+    return params.get('stun') === '0';
+  }
+  var flags = getBrowserCompatFlags();
+  return flags.isHuawei || flags.isWeChat || flags.isQQBrowser || flags.isAndroid;
+}
+
+function applyBrowserCompatibilityDefaults(){
+  var stunCheckbox = document.getElementById('use-stun');
+  if (stunCheckbox) {
+    stunCheckbox.checked = !shouldDisableClientStun();
+  }
+}
+
+function schedulePlaybackNudges(){
+  var attempts = 0;
+  var timer = setInterval(function(){
+    attempts += 1;
+    unlockMediaPlayback();
+    var remote = document.getElementById('video');
+    if (remoteVideoPlaying || !remote || (remote.readyState >= 3 && remote.currentTime > 0) || attempts >= 8) {
+      clearInterval(timer);
+    }
+  }, 600);
+}
+
+function scheduleAutoBootRecovery(){
+  setTimeout(function(){
+    var flags = getBrowserCompatFlags();
+    var remote = document.getElementById('video');
+    var hasRemoteFrame = !!(remote && remote.srcObject && remote.readyState >= 2);
+    if (remoteVideoPlaying || hasRemoteFrame || autoBootRetryCount > 0) return;
+    if (!(flags.isHuawei || flags.isWeChat || flags.isQQBrowser || flags.isAndroid)) return;
+    autoBootRetryCount += 1;
+    console.warn('auto boot retry: fallback without client stun');
+    setStatus('正在重试连接数字人...');
+    try { stop(); } catch (e) { console.warn(e); }
+    var stunCheckbox = document.getElementById('use-stun');
+    if (stunCheckbox) { stunCheckbox.checked = false; }
+    setTimeout(function(){ autoBootH5(); }, 80);
+  }, 2200);
+}
+
+var currentLayout = 'pip';
+function toggleLayout() {
+  var container = document.getElementById('appContainer');
+  var btn = document.getElementById('btn_layout');
+  if (currentLayout === 'pip') {
+    container.classList.add('layout-side');
+    btn.textContent = '画中画';
+    currentLayout = 'side';
+  } else {
+    container.classList.remove('layout-side');
+    btn.textContent = '并排';
+    currentLayout = 'pip';
+  }
+}
+
+var mediaRecorder = null;
+var recordedChunks = [];
+var isRecording = false;
+var recStartTime = 0;
+var recTimer = null;
+var recCanvas = null;
+var recCtx = null;
+var recAnimFrame = null;
+var pendingVideoDownload = false;
+var videoDownloadInFlight = false;
+var recorderMimeType = '';
+var recorderFileExt = 'webm';
+
+function toggleRecord() {
+  if (isRecording) { stopRecord(); } else { startRecord(); }
+}
+
+function updateRecTime() {
+  var elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+  var m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  var s = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('recTime').textContent = m + ':' + s;
+}
+
+function getRecordRootRect() {
+  var root = document.querySelector('.video-main');
+  return root ? root.getBoundingClientRect() : { left: 0, top: 0, width: 390, height: 844 };
+}
+
+function scaleRectToCanvas(rect, rootRect, W, H) {
+  return {
+    x: (rect.left - rootRect.left) / rootRect.width * W,
+    y: (rect.top - rootRect.top) / rootRect.height * H,
+    w: rect.width / rootRect.width * W,
+    h: rect.height / rootRect.height * H
+  };
+}
+
+function drawVideoInRect(video, rect, options) {
+  if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) return;
+  var opts = options || {};
+  var fitScale = Math.max(rect.w / video.videoWidth, rect.h / video.videoHeight);
+  var drawW = video.videoWidth * fitScale;
+  var drawH = video.videoHeight * fitScale;
+  var drawX = rect.x + (rect.w - drawW) / 2;
+  var drawY = rect.y + (rect.h - drawH) / 2;
+  var scale = opts.scale || 1;
+  var originX = rect.x + rect.w * (opts.originX == null ? 0.5 : opts.originX);
+  var originY = rect.y + rect.h * (opts.originY == null ? 0.5 : opts.originY);
+
+  recCtx.save();
+  recCtx.beginPath();
+  recCtx.rect(rect.x, rect.y, rect.w, rect.h);
+  recCtx.clip();
+  recCtx.translate(originX, originY);
+  recCtx.scale((opts.mirror ? -1 : 1) * scale, scale);
+  recCtx.translate(-originX, -originY);
+  recCtx.drawImage(video, drawX, drawY, drawW, drawH);
+  recCtx.restore();
+}
+
+function drawSubtitleInRect(text, rect) {
+  if (!text) return;
+  recCtx.font = '500 18px sans-serif';
+  recCtx.textAlign = 'center';
+  var labelWidth = Math.min(recCtx.measureText(text).width + 24, rect.w * 0.82);
+  var centerX = rect.x + rect.w / 2;
+  var baselineY = rect.y + rect.h - 30;
+  recCtx.fillStyle = 'rgba(0,0,0,0.7)';
+  recCtx.fillRect(centerX - labelWidth / 2, baselineY - 22, labelWidth, 30);
+  recCtx.fillStyle = '#fff';
+  recCtx.fillText(text, centerX, baselineY);
+  recCtx.textAlign = 'start';
+}
+
+function drawRecFrame() {
+  if (!isRecording) return;
+  var rootRect = getRecordRootRect();
+  var remoteStage = document.querySelector('.stage-remote');
+  var localStage = document.querySelector('.stage-local');
+  var remote = document.getElementById('video');
+  var local = document.getElementById('localVideo');
+  var W = recCanvas.width, H = recCanvas.height;
+  var remoteRect = remoteStage ? scaleRectToCanvas(remoteStage.getBoundingClientRect(), rootRect, W, H) : { x: 0, y: 0, w: W, h: H * 0.48 };
+  var localRect = localStage ? scaleRectToCanvas(localStage.getBoundingClientRect(), rootRect, W, H) : { x: 0, y: H * 0.49, w: W, h: H * 0.34 };
+  recCtx.fillStyle = '#000';
+  recCtx.fillRect(0, 0, W, H);
+  drawVideoInRect(remote, remoteRect, { scale: 1.45, originX: 0.5, originY: 0.38 });
+  drawVideoInRect(local, localRect, { scale: 1, mirror: true, originX: 0.5, originY: 0.5 });
+  recCtx.strokeStyle = '#333';
+  recCtx.lineWidth = 2;
+  recCtx.beginPath();
+  recCtx.moveTo(localRect.x, localRect.y);
+  recCtx.lineTo(localRect.x + localRect.w, localRect.y);
+  recCtx.stroke();
+  recCtx.font = '600 20px sans-serif';
+  recCtx.fillStyle = 'rgba(0,0,0,0.6)';
+  recCtx.fillRect(remoteRect.x + 12, remoteRect.y + 12, 80, 32);
+  recCtx.fillRect(localRect.x + 12, localRect.y + 12, 50, 32);
+  recCtx.fillStyle = '#fff';
+  recCtx.fillText('徐小平', remoteRect.x + 18, remoteRect.y + 34);
+  recCtx.fillText('我', localRect.x + 22, localRect.y + 34);
+  var aiSub = document.getElementById('subtitleAi');
+  var userSub = document.getElementById('subtitleUser');
+  if (aiSub && aiSub.classList.contains('show') && aiSub.textContent) {
+    drawSubtitleInRect(aiSub.textContent, remoteRect);
+  }
+  if (userSub && userSub.classList.contains('show') && userSub.textContent) {
+    drawSubtitleInRect(userSub.textContent, localRect);
+  }
+  recAnimFrame = requestAnimationFrame(drawRecFrame);
+}
+
+function startRecord() {
+  if (isRecording) return;
+  var videoEl = document.getElementById('video');
+  var audioEl = document.getElementById('audio');
+  if (!videoEl.srcObject) { alert('请先开始连接数字人'); return; }
+  var rootRect = getRecordRootRect();
+  recCanvas = document.createElement('canvas');
+  recCanvas.width = 720;
+  recCanvas.height = Math.round(recCanvas.width * rootRect.height / Math.max(rootRect.width, 1));
+  recCtx = recCanvas.getContext('2d');
+  var canvasStream = recCanvas.captureStream(25);
+  var audioCtx = rememberAudioContext(new (window.AudioContext||window.webkitAudioContext)());
+  var dest = audioCtx.createMediaStreamDestination();
+  if (audioEl.srcObject) {
+    var remoteAudioSrc = audioCtx.createMediaStreamSource(audioEl.srcObject);
+    remoteAudioSrc.connect(dest);
+  }
+  if (micStream) {
+    var micSrc = audioCtx.createMediaStreamSource(micStream);
+    micSrc.connect(dest);
+  }
+  dest.stream.getAudioTracks().forEach(function(t) { canvasStream.addTrack(t); });
+  recorderMimeType = '';
+  recorderFileExt = 'webm';
+  var preferredVideoTypes = [
+    { mime: 'video/webm;codecs=vp9,opus', ext: 'webm' },
+    { mime: 'video/webm;codecs=vp8,opus', ext: 'webm' },
+    { mime: 'video/webm', ext: 'webm' }
+  ];
+  var chosenType = null;
+  if (window.MediaRecorder && typeof MediaRecorder.isTypeSupported === 'function') {
+    chosenType = preferredVideoTypes.find(function(item) {
+      return MediaRecorder.isTypeSupported(item.mime);
+    }) || null;
+  }
+  try {
+    if (chosenType) {
+      recorderMimeType = chosenType.mime;
+      recorderFileExt = chosenType.ext;
+      mediaRecorder = new MediaRecorder(canvasStream, { mimeType: chosenType.mime, videoBitsPerSecond: 2500000 });
+    } else {
+      mediaRecorder = new MediaRecorder(canvasStream, { videoBitsPerSecond: 2500000 });
+      recorderMimeType = mediaRecorder.mimeType || 'video/webm';
+      recorderFileExt = 'webm';
+    }
+  } catch(e) {
+    alert('浏览器不支持视频录制');
+    return;
+  }
+  recordedChunks = [];
+  mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = function() {
+    if (pendingVideoDownload) {
+      pendingVideoDownload = false;
+      downloadRecording();
+    }
+  };
+  mediaRecorder.start(1000);
+  isRecording = true;
+  recStartTime = Date.now();
+  recTimer = setInterval(updateRecTime, 1000);
+  drawRecFrame();
+  document.getElementById('recIndicator').classList.remove('hidden');
+  updateRecTime();
+  window._recAudioCtx = audioCtx;
+}
+
+function stopRecord() {
+  isRecording = false;
+  if (recAnimFrame) { cancelAnimationFrame(recAnimFrame); recAnimFrame = null; }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
+  if (recTimer) { clearInterval(recTimer); recTimer = null; }
+  if (window._recAudioCtx) { window._recAudioCtx.close(); window._recAudioCtx = null; }
+  document.getElementById('recIndicator').classList.add('hidden');
+}
+
+function buildRecordingFilename(ext) {
+  var now = new Date();
+  return '大咖说_徐小平_' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0') + String(now.getSeconds()).padStart(2,'0') + '.' + ext;
+}
+
+  function setVideoDownloadButtonState(loading) {
+  var buttons = Array.prototype.slice.call(document.querySelectorAll('button'));
+  var target = buttons.find(function(btn) { return btn.textContent && btn.textContent.trim() === '下载视频'; });
+  if (!target) return null;
+  if (!target.dataset.defaultText) { target.dataset.defaultText = target.textContent; }
+  if (loading) {
+    target.disabled = true;
+    target.textContent = '下载中...';
+  } else {
+    target.disabled = false;
+    target.textContent = target.dataset.defaultText || '下载视频';
+  }
+  return target;
+}
+
+async function downloadRecording() {
+  if (recordedChunks.length === 0) return;
+  if (videoDownloadInFlight) return;
+  videoDownloadInFlight = true;
+  setVideoDownloadButtonState(true);
+  var sourceBlob = new Blob(recordedChunks, { type: recorderMimeType || 'video/webm' });
+  var sourceExt = recorderFileExt || 'webm';
+  try {
+    var url = URL.createObjectURL(sourceBlob);
+    var a = document.createElement('a');
+    var fname = buildRecordingFilename(sourceExt);
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  } catch (err) {
+    console.error(err);
+    alert('视频下载失败，请稍后重试');
+  } finally {
+    videoDownloadInFlight = false;
+    setVideoDownloadButtonState(false);
+  }
+}
+function downloadVideo(){
+  if (isRecording) { pendingVideoDownload = true; stopRecord(); return; }
+  if (recordedChunks.length > 0) { downloadRecording(); return; }
+  alert('视频还在准备中，请稍等几秒再试');
+}
+function downloadAllFiles(){
+  downloadChat();
+  setTimeout(function(){ downloadAudio(); }, 500);
+  setTimeout(function(){ downloadVideo(); }, 1100);
+}
+
+function appendChat(role,text){
+  var c=document.getElementById('chatMessages');
+  if(!chatStarted){c.innerHTML='';chatStarted=true;}
+  var d=document.createElement('div');d.className='chat-msg '+role;
+  var s=document.createElement('div');s.className='sender';
+  s.textContent=role==='user'?'我':'徐小平';d.appendChild(s);
+  var t=document.createElement('div');t.textContent=text;d.appendChild(t);
+  c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
+}
+function showInterim(text){
+  var c=document.getElementById('chatMessages');
+  if(!interimDiv){if(!chatStarted){c.innerHTML='';chatStarted=true;}interimDiv=document.createElement('div');interimDiv.className='chat-interim';c.appendChild(interimDiv);}
+  interimDiv.textContent=text+'...';c.scrollTop=c.scrollHeight;
+}
+function clearInterim(){if(interimDiv){interimDiv.remove();interimDiv=null;}}
+function showSubtitle(id,text){
+  var el=document.getElementById(id);if(!el)return;
+  el.textContent=text;el.classList.add('show');
+  clearTimeout(el._timer);el._timer=setTimeout(function(){el.classList.remove('show');},4000);
+}
+
+async function toggleVoiceDialog(){if(voiceActive){stopVoiceDialog();}else{startVoiceDialog();}}
+function switchVoice(){
+  var wasVoiceActive = voiceActive;
+  if(!wasVoiceActive) return;
+  stopVoiceDialog();
+  setTimeout(function(){ startVoiceDialog(); }, 600);
+}
+async function waitForSessionReady(timeoutMs){
+  var startTs=Date.now();
+  while(Date.now()-startTs<timeoutMs){
+    var sidEl=document.getElementById('sessionid');
+    var sid=sidEl?String(sidEl.value||'0'): '0';
+    if(sid && sid!=='0'){return sid;}
+    if(typeof negotiatePromise!=='undefined' && negotiatePromise){
+      try{await Promise.race([negotiatePromise,new Promise(function(r){setTimeout(r,200);})]);}catch(e){}
+    }else{
+      await new Promise(function(r){setTimeout(r,200);});
+    }
+  }
+  throw new Error('连接尚未完成，请先点击开始连接并等待画面连上');
+}
+async function startVoiceDialog(){
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,sampleRate:16000,echoCancellation:true,noiseSuppression:true}});
+    var sid=await waitForSessionReady(8000);
+    var wsProto=location.protocol==='https:'?'wss://':'ws://';
+    var ttsMode=document.getElementById('voiceSelect')?document.getElementById('voiceSelect').value:'doubao';
+    dialogWs=new WebSocket(wsProto+location.host+'/ws/dialog?sessionid='+sid+'&tts_mode='+ttsMode);
+    dialogWs.binaryType='arraybuffer';
+    dialogWs.onopen=function(){console.log('[Dialog] connected');};
+    dialogWs.onmessage=onVoiceMessage;
+    dialogWs.onclose=function(){if(voiceActive)stopVoiceDialog();};
+    dialogWs.onerror=function(e){console.error('[Dialog] ws error',e);};
+    await new Promise(function(resolve){
+      var orig=dialogWs.onmessage;
+      dialogWs.onmessage=function(ev){if(typeof ev.data==='string'){var m=JSON.parse(ev.data);if(m.type==='connected'){resolve();dialogWs.onmessage=orig;return;}}orig(ev);};
+      setTimeout(resolve,5000);
+    });
+    startMicCapture();voiceActive=true;try{startAudioRec();}catch(e){}try{startRecord();}catch(e){}
+    document.getElementById('btn_voice_dialog').textContent='结束语音';
+    document.getElementById('btn_voice_dialog').className='btn btn-red';
+  }catch(e){alert('语音对话启动失败: '+e.message);}
+}
+function stopVoiceDialog(){
+  voiceActive=false;
+  if(dialogWs){try{dialogWs.send(JSON.stringify({type:'stop'}));}catch(ex){}dialogWs.close();dialogWs=null;}
+  stopMicCapture();try{stopAudioRec();}catch(e){}try{stopRecord();}catch(e){}
+  document.getElementById('btn_voice_dialog').textContent='语音对话';
+  document.getElementById('btn_voice_dialog').className='btn btn-blue';
+}
+function startMicCapture(){
+  if(!micStream)return;
+  micCtx=rememberAudioContext(new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000}));
+  var src=micCtx.createMediaStreamSource(micStream);
+  micProc=micCtx.createScriptProcessor(1024,1,1);
+  micProc.onaudioprocess=function(e){
+    if(!dialogWs||dialogWs.readyState!==WebSocket.OPEN)return;
+    var inp=e.inputBuffer.getChannelData(0);
+    var pcm=new Int16Array(inp.length);
+    for(var i=0;i<inp.length;i++){var s=Math.max(-1,Math.min(1,inp[i]));pcm[i]=s<0?s*0x8000:s*0x7FFF;}
+    dialogWs.send(pcm.buffer);
+  };
+  src.connect(micProc);micProc.connect(micCtx.destination);
+}
+function stopMicCapture(){
+  if(micProc){micProc.disconnect();micProc=null;}
+  if(micCtx&&micCtx.state!=='closed'){micCtx.close();micCtx=null;}
+  if(micStream){micStream.getTracks().forEach(function(t){t.stop();});micStream=null;}
+}
+function onVoiceMessage(event){
+  if(event.data instanceof ArrayBuffer)return;
+  var msg=JSON.parse(event.data);
+  if(msg.type==='asr'){
+    if(msg.is_final){clearInterim();appendChat('user',msg.text);showSubtitle('subtitleUser',msg.text);}
+    else{showInterim(msg.text);showSubtitle('subtitleUser',msg.text);}
+  }else if(msg.type==='chat'){
+    if(!currentAiMsg){currentAiText=msg.text;currentAiMsg=appendChat('ai',currentAiText);}
+    else{currentAiText+=msg.text;currentAiMsg.querySelector('div:last-child').textContent=currentAiText;document.getElementById('chatMessages').scrollTop=document.getElementById('chatMessages').scrollHeight;}
+    showSubtitle('subtitleAi',currentAiText);
+  }else if(msg.type==='tts_end'){currentAiMsg=null;currentAiText='';}
+  else if(msg.type==='interrupt'){clearInterim();currentAiMsg=null;currentAiText='';}
+}
+function downloadChat(){
+  var msgs=document.querySelectorAll('.chat-msg');
+  if(msgs.length===0){alert('暂无对话记录');return;}
+  var lines=[];
+  msgs.forEach(function(m){
+    var role=m.classList.contains('user')?'我':'徐小平';
+    var text=m.querySelector('div:last-child').textContent;
+    lines.push(role+': '+text);
+  });
+  var blob=new Blob([lines.join(String.fromCharCode(10))],{type:'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var now=new Date();
+  a.href=url;
+  a.download='对话记录_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+'.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+
+var audioChunks=[],audioRecorder=null,isAudioRec=false,pendingAudioDownload=false;
+var audioMixCtx=null,audioMixProcessor=null,audioSilenceGain=null,audioMixDest=null,audioSampleRate=44100;
+function startAudioRec(){
+  if(isAudioRec) return;
+  var audioEl=document.getElementById('audio');
+  if(!audioEl.srcObject){alert('请先开始连接');return;}
+  audioChunks=[];
+  audioMixCtx=rememberAudioContext(new (window.AudioContext||window.webkitAudioContext)());
+  audioSampleRate=audioMixCtx.sampleRate || 44100;
+  var remoteSource=audioMixCtx.createMediaStreamSource(audioEl.srcObject);
+  var mergerGain=audioMixCtx.createGain();
+  mergerGain.gain.value=1;
+  remoteSource.connect(mergerGain);
+  if(micStream){
+    var micSource=audioMixCtx.createMediaStreamSource(micStream);
+    micSource.connect(mergerGain);
+  }
+  audioMixProcessor=audioMixCtx.createScriptProcessor(4096,1,1);
+  audioMixProcessor.onaudioprocess=function(e){
+    var input=e.inputBuffer.getChannelData(0);
+    audioChunks.push(new Float32Array(input));
+  };
+  audioSilenceGain=audioMixCtx.createGain();
+  audioSilenceGain.gain.value=0;
+  mergerGain.connect(audioMixProcessor);
+  audioMixProcessor.connect(audioSilenceGain);
+  audioSilenceGain.connect(audioMixCtx.destination);
+  isAudioRec=true;
+}
+function finalizeAudioDownload(){
+  if(audioChunks.length===0){alert('录音还在准备中，请稍等几秒再试');return;}
+  if(typeof lamejs === 'undefined'){alert('MP3 编码器加载失败，请刷新后重试');return;}
+  var samples = [];
+  var totalLength = 0;
+  audioChunks.forEach(function(chunk){ samples.push(chunk); totalLength += chunk.length; });
+  var merged = new Float32Array(totalLength);
+  var offset = 0;
+  samples.forEach(function(chunk){ merged.set(chunk, offset); offset += chunk.length; });
+  var mp3encoder = new lamejs.Mp3Encoder(1, audioSampleRate, 128);
+  var blockSize = 1152;
+  var mp3Data = [];
+  for (var i = 0; i < merged.length; i += blockSize) {
+    var sampleChunk = merged.subarray(i, i + blockSize);
+    var int16Chunk = new Int16Array(sampleChunk.length);
+    for (var j = 0; j < sampleChunk.length; j++) {
+      var s = Math.max(-1, Math.min(1, sampleChunk[j]));
+      int16Chunk[j] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    var mp3buf = mp3encoder.encodeBuffer(int16Chunk);
+    if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
+  }
+  var endBuf = mp3encoder.flush();
+  if (endBuf.length > 0) mp3Data.push(new Int8Array(endBuf));
+  var blob=new Blob(mp3Data,{type:'audio/mpeg'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var now=new Date();
+  a.href=url;
+  a.download='音频_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+'.mp3';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+function downloadAudio(){
+  if(isAudioRec){ pendingAudioDownload=true; stopAudioRec(); return; }
+  if(audioChunks.length>0){ finalizeAudioDownload(); return; }
+  alert('录音还在准备中，请稍等几秒再试');
+}
+function stopAudioRec(){
+  isAudioRec=false;
+  if(audioMixProcessor){audioMixProcessor.disconnect();audioMixProcessor=null;}
+  if(audioSilenceGain){audioSilenceGain.disconnect();audioSilenceGain=null;}
+  if(audioMixCtx&&audioMixCtx.state!=='closed'){audioMixCtx.close();audioMixCtx=null;}
+  if(pendingAudioDownload){pendingAudioDownload=false;finalizeAudioDownload();}
+}
+function showConnectToast(title, text){
+  var toast=document.getElementById('connectToast');
+  var titleEl=document.getElementById('connectToastTitle');
+  var textEl=document.getElementById('connectToastText');
+  if(titleEl){titleEl.textContent=title||'连接遇到一点问题';}
+  if(textEl){textEl.textContent=text||'数字人暂时没有显示出来，请重新连接。';}
+  if(toast){toast.classList.remove('hidden');}
+}
+function hideConnectToast(){
+  var toast=document.getElementById('connectToast');
+  if(toast){toast.classList.add('hidden');}
+}
+function clearConnectWatch(){
+  if(connectWatchTimer){
+    clearTimeout(connectWatchTimer);
+    connectWatchTimer=null;
+  }
+}
+function markConnectReady(){
+  connectState='ready';
+  clearConnectWatch();
+  hideConnectToast();
+}
+function startConnectWatch(){
+  clearConnectWatch();
+  connectState='connecting';
+  hideConnectToast();
+  connectWatchTimer=setTimeout(function(){
+    var videoEl=document.getElementById('video');
+    var hasVideo=!!(videoEl&&videoEl.srcObject);
+    var hasFrame=!!(videoEl&&videoEl.readyState>=2&&videoEl.videoWidth>0&&videoEl.videoHeight>0);
+    if(hasVideo&&hasFrame){
+      markConnectReady();
+      return;
+    }
+    connectState='failed';
+    setStatus('连接失败，请重新连接');
+    showConnectToast('数字人连接失败', '当前浏览器自动连接没有完成，请点击“重新连接”再试一次。');
+  }, 8000);
+}
+function tryPlayRemoteVideo(){
+  var videoEl=document.getElementById('video');
+  if(!videoEl) return;
+  try{
+    var playPromise=videoEl.play();
+    if(playPromise&&typeof playPromise.catch==='function'){
+      playPromise.catch(function(err){
+        console.warn('远端视频自动播放失败:', err);
+      });
+    }
+  }catch(err){
+    console.warn('远端视频播放异常:', err);
+  }
+}
+function setStatus(text){
+  var el=document.getElementById('h5Status');
+  if(el){el.textContent=text;}
+}
+function resetForReconnect(){
+  clearConnectWatch();
+  hideConnectToast();
+  connectState='idle';
+  try{ stopVoiceDialog(); }catch(e){}
+  try{ stop(); }catch(e){}
+}
+async function manualReconnect(){
+  if(connectState==='connecting') return;
+  isManualReconnect=true;
+  resetForReconnect();
+  setStatus('正在重新连接...');
+  setTimeout(function(){
+    autoBootH5();
+  }, 80);
+}
+function goBackHome(){
+  try{ stop(); }catch(e){ console.warn(e); }
+  setTimeout(function(){ location.href='https://demo2.pianai.love/h5.html'; }, 250);
+}
+var __origStart=start;
+start=function(){
+  startConnectWatch();
+  setStatus('正在连接数字人...');
+  return __origStart();
+};
+var __origStop=stop;
+stop=function(){
+  clearConnectWatch();
+  if(voiceActive){stopVoiceDialog();}
+  setStatus('对话已结束');
+  return __origStop();
+};
+var __origStartVoiceDialog=startVoiceDialog;
+startVoiceDialog=async function(){
+  setStatus('正在开启语音...');
+  await __origStartVoiceDialog();
+  if(voiceActive){setStatus('正在实时对话');showSubtitle('subtitleAi','你好，我是徐小平，很高兴和你交流！');setTimeout(function(){try{startAudioRec();}catch(e){}try{startRecord();}catch(e){}},300);}
+};
+async function autoBootH5(){
+  var avatar=document.getElementById('avatarSelect');
+  var voice=document.getElementById('voiceSelect');
+  var params = new URLSearchParams(location.search);
+  var avatarParam = params.get('avatar');
+  applyBrowserCompatibilityDefaults();
+  if(avatar){ avatar.value = avatarParam || 'musetalk_35_hd'; }
+  if(voice){voice.value='voice1';}
+  hideConnectToast();
+  remoteVideoPlaying=false;
+  start();
+  schedulePlaybackNudges();
+  scheduleAutoBootRecovery();
+  try{
+    if(typeof negotiatePromise!=='undefined' && negotiatePromise){await negotiatePromise;}
+    await startVoiceDialog();
+    isManualReconnect=false;
+  }catch(e){
+    console.warn('auto boot failed', e);
+    connectState='failed';
+    clearConnectWatch();
+    setStatus('自动连接失败，请重新连接');
+    showConnectToast('自动连接失败', '当前浏览器没有顺利拉起数字人或语音连接，请点击“重新连接”重试。');
+  }
+}
+navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720}},audio:false}).then(function(stream){
+  var localVideo = document.getElementById('localVideo');
+  localVideo.srcObject=stream;
+  unlockMediaPlayback();
+}).catch(function(e){console.warn('摄像头:',e);});
+
+var remoteVideo=document.getElementById('video');
+if(remoteVideo){
+  remoteVideo.addEventListener('loadedmetadata', function(){
+    tryPlayRemoteVideo();
+  });
+  remoteVideo.addEventListener('canplay', function(){
+    tryPlayRemoteVideo();
+  });
+  remoteVideo.addEventListener('playing', function(){
+    remoteVideoPlaying = true;
+    markConnectReady();
+    setStatus('正在实时对话');
+  });
+}
+
+function pickVoice(btn) {
+  document.querySelectorAll('.btn-voice').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  var sel = document.getElementById('voiceSelect');
+  sel.value = btn.getAttribute('data-voice');
+  switchVoice();
+}
+window.addEventListener('load', function(){ bindUnlockHandlers(); setTimeout(autoBootH5, 80); });
+  </script>
+</body>
+</html>
